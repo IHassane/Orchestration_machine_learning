@@ -1,3 +1,6 @@
+# <span style="color: #d22c19;">Première Séance</span>
+
+
 # Architecture Decision Record — Cas 1 : Analyse d'images dermatologiques
 
 ## Choix du cas d'usage et compatibilité avec le quota
@@ -80,4 +83,7 @@ ce qui ne laisse que 256 Mi de marge dans un quota de 5 Gi — insuffisant
 pour absorber un quelconque pic. En Recreate, les anciens pods sont supprimés 
 avant la création des nouveaux, ce qui garantit que la consommation ne dépasse 
 jamais le budget nominal de 2,75 Gi. Le compromis est une interruption de service brève
- pendant le redéploiement, acceptable dans un contexte de projet académique.
+ pendant le redéploiement, acceptable dans un notre contexte.
+
+
+# <span style="color: #d22c19;">Deuxieme Séance</span>
