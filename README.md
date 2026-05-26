@@ -1,6 +1,6 @@
 # <span style="color: #1976D2;">Projet TRIGRAMME — Orchestration d'un modèle CNN Dermatologique sur Kubernetes</span>
 
-## Première Séance : Présentation du Projet & Technologies
+## Présentation du Projet & Technologies
 
 Ce projet a pour but de déployer, orchestrer et monitorer en production un modèle de Deep Learning (**CNN**) spécialisé dans la classification d'images médicales, en respectant les standards industriels du **MLOps**.
 
@@ -40,7 +40,7 @@ Parce que le Deep Learning est gourmand en ressources, l'architecture est optimi
 
 ---
 
-## Structure du Dépôt (Étape 1)
+## Structure du Dépôt
 
 ```text
 .
