@@ -7,14 +7,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copie et installation des dépendances locales au dossier inference
+# Copie des dépendances
 COPY requirements.txt .
+
+# --- LE FIX ICI : On met à jour pip ET on force globalement l'index CPU pour torch ---
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir torch==2.2.1 torchvision==0.17.1 --index-url https://download.pytorch.org/whl/cpu
+
+# On installe le reste (FastAPI, Uvicorn, etc.). Pip verra que torch est déjà là en version CPU !
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Création du dossier structurel pour recevoir les modèles au runtime
+# Création du dossier pour les modèles
 RUN mkdir -p models
 
-# Copie de l'application FastAPI
+# Copie de l'application
 COPY app.py .
 
 EXPOSE 5001
