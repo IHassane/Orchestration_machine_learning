@@ -18,13 +18,15 @@ jobs:
     - name: Configuration de Python 3.10
       uses: actions/setup-python@v5
       with:
-        python-version: '3.10' # <-- CORRIGÉ : C'était python-python
+        python-version: '3.10'
         cache: 'pip' 
 
     - name: Installation des dépendances globales et de test
       run: |
         python -m pip install --upgrade pip
-        pip install pytest pytest-cov pytest-mock httpx numpy Pillow fastapi torch python-multipart torchvision requests
+        # --- CORRIGÉ : On installe d'abord PyTorch en version CPU pour le runner GitHub ---
+        pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+        pip install pytest pytest-cov pytest-mock httpx numpy Pillow fastapi python-multipart requests
 
     - name: Exécution des tests avec vérification des 80% de couverture
       env:
@@ -52,7 +54,6 @@ jobs:
     - name: Checkout du code
       uses: actions/checkout@v4
 
-    # --- ÉTAPE AJOUTÉE : Indispensable pour émuler l'ARM64 pendant le build sur GitHub ---
     - name: Configuration de QEMU (pour le multi-architecture)
       uses: docker/setup-qemu-action@v3
 
@@ -70,8 +71,9 @@ jobs:
       with:
         context: ${{ matrix.context }}
         push: true
-        # --- MODIFICATION ICI : On demande explicitement AMD64 + ARM64 ---
         platforms: linux/amd64,linux/arm64
+        # --- AJOUT TEMPORAIRE : On force Docker à tout re-builder SANS utiliser le vieux cache lourd ---
+        no-cache: true
         tags: |
           ${{ secrets.DOCKERHUB_USERNAME }}/ham10000-${{ matrix.service_name }}:latest
           ${{ secrets.DOCKERHUB_USERNAME }}/ham10000-${{ matrix.service_name }}:${{ github.sha }}

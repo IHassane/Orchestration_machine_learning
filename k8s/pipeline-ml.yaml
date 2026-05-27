@@ -18,6 +18,7 @@ spec:
       containers:
       - name: monitoring-container
         image: issamehassane/ham10000-monitoring:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 9090
         resources:
@@ -66,6 +67,7 @@ spec:
       containers:
       - name: inference-container
         image: issamehassane/ham10000-inference:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 5001
         resources:
@@ -112,6 +114,7 @@ spec:
       containers:
       - name: preprocessing-container
         image: issamehassane/ham10000-preprocessing:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 8001
         env:
