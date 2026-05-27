@@ -87,3 +87,10 @@ jamais le budget nominal de 2,75 Gi. Le compromis est une interruption de servic
 
 
 # <span style="color: #d22c19;">Deuxieme Séance</span>
+
+
+## Déploiement
+
+1. Création du namespace dédié (TRIGRAMME) :
+   ```bash
+   kubectl create namespace projet-TRIGRAMME

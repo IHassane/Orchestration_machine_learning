@@ -1,0 +1,15 @@
+FROM python:3.10-slim
+
+WORKDIR /app
+
+# Installation des dépendances en premier pour profiter du cache Docker
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copie du code applicatif
+COPY app.py .
+
+EXPOSE 8001
+
+# Lancement de l'application avec Uvicorn sur le port 8001 (comme déclaré dans k8s)
+CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8001"]

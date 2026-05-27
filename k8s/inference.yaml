@@ -1,0 +1,43 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-svc
+  labels:
+    app: inference
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: inference
+  template:
+    metadata:
+      labels:
+        app: inference
+    spec:
+      containers:
+      - name: inference-container
+        image: ton-dockerhub/inference:latest
+        ports:
+        - containerPort: 5000
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: inference
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000

@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: preprocessing-svc
+  labels:
+    app: preprocessing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: preprocessing
+  template:
+    metadata:
+      labels:
+        app: preprocessing
+    spec:
+      containers:
+      - name: preprocessing-container
+        image: ton-dockerhub/preprocessing:latest
+        ports:
+        - containerPort: 8001
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "1000m"
+          limits:
+            memory: "512Mi"
+            cpu: "1000m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: preprocessing-svc
+spec:
+  type: ClusterIP
+  selector:
+    app: preprocessing
+  ports:
+    - protocol: TCP
+      port: 8001
+      targetPort: 8001
