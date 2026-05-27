@@ -3,6 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 import numpy as np
+import requests
 
 # On importe l'application FastAPI depuis ton dossier services
 from services.preprocessing.app import app, preprocess_image
@@ -95,3 +96,20 @@ def test_predict_inference_failure_relayed(mocker):
     
     assert response.status_code == 503
     assert "Erreur du service d'inférence" in response.json()["detail"]
+
+def test_predict_inference_network_crash(mocker):
+    # On simule un crash réseau complet (Pas de code HTTP, juste une coupure)
+    mock_post = mocker.patch("services.preprocessing.app.requests.post")
+    mock_post.side_effect = requests.exceptions.ConnectionError("Failed to connect")
+
+    import io
+    from PIL import Image
+    img = Image.new("RGB", (50, 50), color="yellow")
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format="JPEG")
+
+    files = {"file": ("image.jpg", img_byte_arr.getvalue(), "image/jpeg")}
+    response = client.post("/predict", files=files)
+    
+    # On vérifie que ton code attrape l'erreur proprement (500 ou 503 selon ton code)
+    assert response.status_code in [500, 503, 400]
