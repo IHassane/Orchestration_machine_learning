@@ -1,87 +1,77 @@
-name: CI/CD - ML Model Training & Deployment
+name: CI/CD Pipeline HAM10000
 
 on:
   push:
-    branches: [main]
+    branches: [ "main", "develop" ]
   pull_request:
-    branches: [main]
+    branches: [ "main" ]
 
 jobs:
-  # ─── JOB 1 : LINTING & TESTS ───────────────────────────────────────
-  test:
+  # 1. ÉTAPE DE TEST ET COUVERTURE (CI)
+  test-and-coverage:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout du code
+      uses: actions/checkout@v4
 
-      - name: Set up Python 3.14
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.14"
+    - name: Configuration de Python 3.10
+      uses: actions/setup-python@v5
+      with:
+        python-python: '3.10'
+        cache: 'pip' # Cache les dépendances pour accélérer les futurs runs
 
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install pytest flake8 torch torchvision Pillow numpy pandas scikit-learn
+    - name: Installation des dépendances globales et de test
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-mock httpx numpy Pillow fastapi
+        # Si tu préfères installer via tes requirements locaux :
+        # pip install -r services/preprocessing/requirements.txt
+        # pip install -r services/monitoring/requirements.txt
 
-      - name: Lint with flake8
-        run: |
-          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+    - name: Exécution des tests avec vérification des 80% de couverture
+      run: |
+        # --cov-fail-under=80 va faire planter le workflow si la couverture globale est inférieure à 80%
+        pytest --cov=services --cov-report=term-missing --cov-fail-under=80
 
-      - name: Run tests with pytest
-        run: |
-          pytest tests/ -v --tb=short
-
-  # ─── JOB 2 : BUILD & PUSH DOCKER IMAGE ─────────────────────────────
+  # 2. ÉTAPE DE BUILD ET PUSH SUR DOCKER HUB (CD)
+  # Ce job ne se lance QUE si le job 'test-and-coverage' a réussi (donc si couverture >= 80%)
   build-and-push:
-    needs: test
+    needs: test-and-coverage
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' # Ne push que sur les commits de la branche main
+    
+    strategy:
+      matrix:
+        include:
+          - service_name: preprocessing
+            context: ./services/preprocessing
+          - service_name: inference
+            context: ./services/inference
+          - service_name: monitoring
+            context: ./services/monitoring
+
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+    - name: Checkout du code
+      uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+    - name: Connexion au Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+    - name: Configuration de Docker Buildx
+      uses: docker/setup-buildx-action@v3
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ secrets.DOCKER_USERNAME }}/ml-orchestration:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  # ─── JOB 3 : DEPLOY TO KUBERNETES ──────────────────────────────────
-  deploy:
-    needs: build-and-push
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up kubectl
-        uses: azure/setup-kubectl@v3
-        with:
-          version: "v1.28.0"
-
-      - name: Configure kubectl
-        run: |
-          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
-          kubectl config use-context default
-
-      - name: Deploy to Kubernetes
-        run: |
-          kubectl apply -f limitrange.yaml
-          kubectl apply -f quota.yaml
-          kubectl set image deployment/ml-inference ml-inference=${{ secrets.DOCKER_USERNAME }}/ml-orchestration:latest
-          kubectl rollout status deployment/ml-inference --timeout=300s
+    - name: Build et Push de l'image
+      uses: docker/build-push-action@v5
+      with:
+        context: ${{ matrix.context }}
+        push: true
+        # Remplace 'ton-username-dockerhub' par ton vrai namespace Docker Hub
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/ham10000-${{ matrix.service_name }}:latest
+          ${{ secrets.DOCKERHUB_USERNAME }}/ham10000-${{ matrix.service_name }}:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

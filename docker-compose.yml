@@ -5,7 +5,7 @@ services:
     ports:
       - "8001:8001"
     environment:
-      - INFERENCE_SERVICE_URL=http://inference:5000/predict
+      - INFERENCE_SERVICE_URL=http://inference:5001/predict
       - MONITORING_URL=http://monitoring:9090/log
     depends_on:
       - inference
@@ -15,11 +15,9 @@ services:
     build:
       context: ./services/inference
     ports:
-      - "5000:5000"
-    # OPTIMISATION LOCAL : On injecte le dossier models de la racine 
-    # directement dans le conteneur au démarrage sans casser le build
+      - "5001:5001"
     volumes:
-      - ./models:/app/models
+      - ./services/inference/models:/app/models 
 
   monitoring:
     build:
