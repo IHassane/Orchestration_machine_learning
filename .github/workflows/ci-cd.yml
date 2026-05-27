@@ -24,10 +24,7 @@ jobs:
     - name: Installation des dépendances globales et de test
       run: |
         python -m pip install --upgrade pip
-        pip install pytest pytest-cov pytest-mock httpx numpy Pillow fastapi
-        # Si tu préfères installer via tes requirements locaux :
-        # pip install -r services/preprocessing/requirements.txt
-        # pip install -r services/monitoring/requirements.txt
+        pip install pytest pytest-cov pytest-mock httpx numpy Pillow fastapi torch python-multipart
 
     - name: Exécution des tests avec vérification des 80% de couverture
       env:
