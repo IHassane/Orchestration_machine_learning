@@ -30,6 +30,8 @@ jobs:
         # pip install -r services/monitoring/requirements.txt
 
     - name: Exécution des tests avec vérification des 80% de couverture
+      env:
+        PYTHONPATH: .
       run: |
         # --cov-fail-under=80 va faire planter le workflow si la couverture globale est inférieure à 80%
         pytest --cov=services --cov-report=term-missing --cov-fail-under=80
