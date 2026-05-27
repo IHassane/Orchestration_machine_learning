@@ -1,0 +1,87 @@
+name: CI/CD - ML Model Training & Deployment
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─── JOB 1 : LINTING & TESTS ───────────────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest flake8 torch torchvision Pillow numpy pandas scikit-learn
+
+      - name: Lint with flake8
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=120 --statistics
+
+      - name: Run tests with pytest
+        run: |
+          pytest tests/ -v --tb=short
+
+  # ─── JOB 2 : BUILD & PUSH DOCKER IMAGE ─────────────────────────────
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/ml-orchestration:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─── JOB 3 : DEPLOY TO KUBERNETES ──────────────────────────────────
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: "v1.28.0"
+
+      - name: Configure kubectl
+        run: |
+          echo "${{ secrets.KUBE_CONFIG }}" | base64 -d > kubeconfig.yaml
+          kubectl config use-context default
+
+      - name: Deploy to Kubernetes
+        run: |
+          kubectl apply -f limitrange.yaml
+          kubectl apply -f quota.yaml
+          kubectl set image deployment/ml-inference ml-inference=${{ secrets.DOCKER_USERNAME }}/ml-orchestration:latest
+          kubectl rollout status deployment/ml-inference --timeout=300s
