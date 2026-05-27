@@ -10,15 +10,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copie des dépendances
 COPY requirements.txt .
 
-# --- LE FIX ICI : On met à jour pip ET on force globalement l'index CPU pour torch ---
+# Force globalement l'index CPU pour torch
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir torch==2.2.1 torchvision==0.17.1 --index-url https://download.pytorch.org/whl/cpu
 
-# On installe le reste (FastAPI, Uvicorn, etc.). Pip verra que torch est déjà là en version CPU !
+# On installe le reste (FastAPI, Uvicorn, etc.)
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Création du dossier pour les modèles
-RUN mkdir -p models
+# --- MODIFICATION ICI ---
+# Au lieu de juste faire un mkdir vide, on copie le contenu de ton dossier local
+# Assure-toi que tes fichiers .pt sont bien dans services/inference/models/ sur ton Mac
+COPY models/ ./models/
 
 # Copie de l'application
 COPY app.py .
