@@ -1,7 +1,8 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: inference-svc
+  name: inference-deployment
+  namespace: projet-trigramme
   labels:
     app: inference
 spec:
@@ -18,9 +19,9 @@ spec:
     spec:
       containers:
       - name: inference-container
-        image: ton-dockerhub/inference:latest
+        image: issamehassane/ham10000-inference:latest
         ports:
-        - containerPort: 5000
+        - containerPort: 5001
         resources:
           requests:
             memory: "2Gi"
@@ -33,11 +34,12 @@ apiVersion: v1
 kind: Service
 metadata:
   name: inference-svc
+  namespace: projet-trigramme
 spec:
   type: ClusterIP
   selector:
     app: inference
   ports:
     - protocol: TCP
-      port: 80
-      targetPort: 5000
+      port: 5001
+      targetPort: 5001

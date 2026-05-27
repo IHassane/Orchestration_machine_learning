@@ -18,8 +18,8 @@ jobs:
     - name: Configuration de Python 3.10
       uses: actions/setup-python@v5
       with:
-        python-python: '3.10'
-        cache: 'pip' # Cache les dépendances pour accélérer les futurs runs
+        python-version: '3.10' # <-- CORRIGÉ : C'était python-python
+        cache: 'pip' 
 
     - name: Installation des dépendances globales et de test
       run: |
@@ -30,15 +30,13 @@ jobs:
       env:
         PYTHONPATH: .
       run: |
-        # --cov-fail-under=80 va faire planter le workflow si la couverture globale est inférieure à 80%
         pytest --cov=services --cov-report=term-missing --cov-fail-under=80
 
   # 2. ÉTAPE DE BUILD ET PUSH SUR DOCKER HUB (CD)
-  # Ce job ne se lance QUE si le job 'test-and-coverage' a réussi (donc si couverture >= 80%)
   build-and-push:
     needs: test-and-coverage
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' # Ne push que sur les commits de la branche main
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     
     strategy:
       matrix:
@@ -54,6 +52,10 @@ jobs:
     - name: Checkout du code
       uses: actions/checkout@v4
 
+    # --- ÉTAPE AJOUTÉE : Indispensable pour émuler l'ARM64 pendant le build sur GitHub ---
+    - name: Configuration de QEMU (pour le multi-architecture)
+      uses: docker/setup-qemu-action@v3
+
     - name: Connexion au Docker Hub
       uses: docker/login-action@v3
       with:
@@ -63,12 +65,13 @@ jobs:
     - name: Configuration de Docker Buildx
       uses: docker/setup-buildx-action@v3
 
-    - name: Build et Push de l'image
+    - name: Build et Push de l'image (Multi-Architecture)
       uses: docker/build-push-action@v5
       with:
         context: ${{ matrix.context }}
         push: true
-        # Remplace 'ton-username-dockerhub' par ton vrai namespace Docker Hub
+        # --- MODIFICATION ICI : On demande explicitement AMD64 + ARM64 ---
+        platforms: linux/amd64,linux/arm64
         tags: |
           ${{ secrets.DOCKERHUB_USERNAME }}/ham10000-${{ matrix.service_name }}:latest
           ${{ secrets.DOCKERHUB_USERNAME }}/ham10000-${{ matrix.service_name }}:${{ github.sha }}

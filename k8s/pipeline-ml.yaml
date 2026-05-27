@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: monitoring-deployment
+  namespace: projet-trigramme
+  labels:
+    app: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: monitoring
+  template:
+    metadata:
+      labels:
+        app: monitoring
+    spec:
+      containers:
+      - name: monitoring-container
+        image: issamehassane/ham10000-monitoring:latest
+        ports:
+        - containerPort: 9090
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "500m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+      imagePullSecrets:
+      - name: dockerhub-cred
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: monitoring-svc
+  namespace: projet-trigramme
+spec:
+  type: ClusterIP
+  selector:
+    app: monitoring
+  ports:
+    - protocol: TCP
+      port: 9090
+      targetPort: 9090
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference-deployment
+  namespace: projet-trigramme
+  labels:
+    app: inference
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: inference
+  template:
+    metadata:
+      labels:
+        app: inference
+    spec:
+      containers:
+      - name: inference-container
+        image: issamehassane/ham10000-inference:latest
+        ports:
+        - containerPort: 5001
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1500m"
+      imagePullSecrets:
+      - name: dockerhub-cred
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inference-svc
+  namespace: projet-trigramme
+spec:
+  type: ClusterIP
+  selector:
+    app: inference
+  ports:
+    - protocol: TCP
+      port: 5001
+      targetPort: 5001
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: preprocessing-deployment
+  namespace: projet-trigramme
+  labels:
+    app: preprocessing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: preprocessing
+  template:
+    metadata:
+      labels:
+        app: preprocessing
+    spec:
+      containers:
+      - name: preprocessing-container
+        image: issamehassane/ham10000-preprocessing:latest
+        ports:
+        - containerPort: 8001
+        env:
+          - name: INFERENCE_SERVICE_URL
+            value: "http://inference-svc.projet-trigramme.svc.cluster.local:5001/predict"
+          - name: MONITORING_URL
+            value: "http://monitoring-svc.projet-trigramme.svc.cluster.local:9090/log"
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "1000m"
+          limits:
+            memory: "512Mi"
+            cpu: "1000m"
+      imagePullSecrets:
+      - name: dockerhub-cred
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: preprocessing-svc
+  namespace: projet-trigramme
+spec:
+  type: ClusterIP
+  selector:
+    app: preprocessing
+  ports:
+    - protocol: TCP
+      port: 8001
+      targetPort: 8001
