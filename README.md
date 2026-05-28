@@ -56,6 +56,19 @@ Parce que le Deep Learning est gourmand en ressources, l'architecture est optimi
 
 # Déploiement
 
+## Prérequis
+
+mkdir data/images
+
+## Instructions
+Récupérer les images à ce lien: 
+https://www.kaggle.com/datasets/kmader/skin-cancer-mnist-ham10000
+ou via ces commandes
+cd data
+pip install kaggle
+kaggle datasets download -d kmader/skin-cancer-mnist-ham10000 -p /content/ham10000 --unzip
+Prenez un échantillon d'images et les mettre dans images
+
 git clone https://github.com/IHassane/Orchestration_machine_learning.git
 
 minikube start --driver=docker --cpus=4 --memory=6144
@@ -64,7 +77,7 @@ minikube addons enable metrics-server
 # Création du namespace obligatoire
 kubectl create namespace projet-trigramme
 
-# Injection des clés de registre pour éviter les erreurs de téléchargement (ImagePullBackOff)
+# Si erreurs de téléchargement -> Injection des clés de registre  (ImagePullBackOff)
 kubectl create secret docker-registry dockerhub-cred \
   --docker-username="" \
   --docker-password="" \
@@ -85,3 +98,6 @@ kubectl get pods -n projet-trigramme
 minikube service preprocessing-svc -n projet-trigramme --url
 
 python scripts/load_test.py --case images --level nominal --url http://127.0.0.1:<PORT_DYNAMIQUE>/predict
+
+## Si besoin
+pip install requests
