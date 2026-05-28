@@ -63,10 +63,6 @@ Parce que le Deep Learning est gourmand en ressources, l'architecture est optimi
 
 # Déploiement
 
-## Prérequis
-
-mkdir data/images
-
 ## Instructions
 Récupérer les images à ce lien: 
 https://www.kaggle.com/datasets/kmader/skin-cancer-mnist-ham10000
