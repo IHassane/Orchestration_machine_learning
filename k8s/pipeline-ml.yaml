@@ -119,9 +119,9 @@ spec:
         - containerPort: 8001
         env:
           - name: INFERENCE_SERVICE_URL
-            value: "http://inference-svc.projet-trigramme.svc.cluster.local:5001/predict"
+            value: "http://inference-svc:5001/predict"
           - name: MONITORING_URL
-            value: "http://monitoring-svc.projet-trigramme.svc.cluster.local:9090/log"
+            value: "http://monitoring-svc:9090/log"
         resources:
           requests:
             memory: "512Mi"

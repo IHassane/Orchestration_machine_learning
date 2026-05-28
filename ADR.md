@@ -86,11 +86,31 @@ jamais le budget nominal de 2,75 Gi. Le compromis est une interruption de servic
  pendant le redéploiement, acceptable dans un notre contexte.
 
 
-# <span style="color: #d22c19;">Deuxieme Séance</span>
+
+# <span style="color: #d22c19;">Deuxième Séance : Conteneurisation, Optimisation et Pipeline CI/CD</span>
+Optimisation des images sous contrainte de taille
+La contrainte majeure de cette séance a résidé dans le respect strict de la taille des images conteneurisées et la gestion de la mémoire sous charge concurrente. Lors des premiers essais, l'image du service d'inférence atteignait une taille critique de 5,6 Go sur Docker Hub, un volume incompatible avec un déploiement Kubernetes fluide et provoquant des échecs de téléchargement systématiques par dépassement du délai d'attente de Minikube.
+L'analyse des couches d'image a révélé que l'installation standard de PyTorch via le gestionnaire de paquets embarquait par défaut l'intégralité des binaires d'accélération Nvidia CUDA et cuDNN, ajoutant plus de 4 Go de pilotes inutiles pour une exécution CPU sur notre cluster local.
+Pour corriger cette dérive sans altérer le code applicatif, deux optimisations ont été implémentées dans le processus de build de l'inférence :
+	1.	Utilisation d'une image de base "Slim" : Remplacement de l'image Python standard par une version allégée, réduisant l'empreinte initiale du système d'exploitation de près de 700 Mo.
+	2.	Forçage de l'index CPU : Isolation et ciblage explicite de la version CPU de PyTorch en amont du fichier de dépendances, court-circuitant ainsi les résolutions standards.
+Grâce à ces mesures, le téléchargement de PyTorch a fondu et l'ensemble des dépendances CUDA a été banni. L'image finale poussée sur Docker Hub a atteint seulement 300 Mo, garantissant un démarrage des conteneurs en quelques secondes.
+Robustesse du pipeline CI/CD Multi-Architecture
+Le pipeline GitHub Actions a été configuré pour répondre à l'exigence multi-architecture, permettant la compilation simultanée pour les architectures serveurs standards et nativement pour la puce Apple Silicon de notre environnement de développement local.
+Pour pallier le fait que les runners de GitHub Actions tournent exclusivement sur du matériel Intel, l'intégration de l'émulateur QEMU a été indispensable pour simuler l'architecture ARM64 en arrière-plan.
+Afin d'éviter que le mécanisme de cache global de GitHub Actions ne conserve des traces des couches Nvidia CUDA lourdes initialement construites, le drapeau de désactivation du cache a été temporairement imposé lors de la phase de stabilisation. De plus, pour sanctuariser le contexte de build et interdire l'inclusion accidentelle d'environnements virtuels locaux ou de résidus de tests, un fichier d'exclusion strict a été positionné à la racine du projet.
 
 
-## Déploiement
-
-1. Création du namespace dédié (TRIGRAMME) :
-   ```bash
-   kubectl create namespace projet-TRIGRAMME
+# <span style="color: #d22c19;">Troisième Séance : Déploiement Kubernetes et Stabilisation du Cluster Local</span>
+Initialisation et Réparation de l'infrastructure Minikube
+Le déploiement sur l'environnement Minikube a mis en évidence des instabilités critiques liées à la corruption du conteneur de contrôle-nœud lors des phases d'arrêts brutaux, bloquant l'API Server et empêchant l'activation des extensions de stockage indispensables.
+Pour retrouver un état d'infrastructure sain, reproductible et conforme aux spécifications matérielles recommandées, une purge complète du cluster local, des profils et des fichiers de configuration corrompus a été opérée avant de relancer proprement Minikube.
+Résolution du verrou d'authentification Docker Hub
+Suite à la réinitialisation du cluster, les pods ont immédiatement basculé en état d'erreur de téléchargement. L'analyse des événements du cycle de vie du pod d'inférence a mis en lumière un double blocage :
+	1.	Une erreur indiquant que le cluster ne parvenait pas à localiser les clés d'accès au registre privé.
+	2.	Une erreur de Docker Hub bloquant les requêtes anonymes par épuisement des quotas de téléchargement.
+Pour résoudre ce problème de manière étanche au sein du namespace isolé, l'ancien secret défaillant a été supprimé puis recréé proprement avec des identifiants valides. Ce secret d'authentification a été explicitement rattaché aux directives des manifests Kubernetes, combiné à une politique de téléchargement systématique afin d'obliger le cluster à récupérer la version multi-architecture corrigée.
+Intégration des Artefacts de Modèles au Runtime
+Lors des phases de tests fonctionnels initiées par requêtes HTTP depuis le système hôte, le pipeline a renvoyé une erreur de service indisponible provoquée par la levée d'une exception fatale dans le code applicatif FastAPI. Bien que le processus prévoyait la création du dossier structurel pour les modèles, l'encapsulation de l'artefact entraîné hors Minikube de 20 Mo était manquante.
+La correction définitive a consisté à modifier la topologie du build en ajoutant l'instruction de copie des artefacts de poids directement dans l'image lors de sa compilation.
+Après un ultime redémarrage des déploiements pour forcer la prise en compte des modifications, le cluster s'est stabilisé. Tous les microservices (Preprocessing, Inference, Monitoring) sont désormais en statut Running. Le pont réseau valide la communication de bout en bout et confirme que le pipeline est prêt pour subir les stress tests de charge concurrentielle exigés par le correcteur.
