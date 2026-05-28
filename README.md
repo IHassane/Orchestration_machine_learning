@@ -17,8 +17,7 @@ Le projet s'articule autour d'un écosystème technologique moderne pour assurer
 * **Conteneurisation :** `Docker` pour packager le code, le runtime PyTorch et les poids du modèle dans des images légères et isolées.
 * **Orchestration :** `Kubernetes (Minikube)` pour gérer le cycle de vie des conteneurs, le routage réseau interne et l'auto-guerison des pods.
 * **CI/CD :** `GitHub Actions` pour automatiser les tests unitaires et le build/push des images Docker sur le `Docker Hub`.
-* **Monitoring :** `Prometheus` pour la collecte des métriques de performance (latence d'inférence, taux d'erreur).
-
+* **Monitoring :** `Service de Monitoring Custom` Afin de respecter scrupuleusement les contraintes de quotas du namespace (3500m CPU / 5Gi RAM), nous n'avons pas déployé un serveur Prometheus complet (trop lourd en mémoire). À la place, un service de monitoring In-Memory sur mesure a été développé avec FastAPI et NumPy. Il collecte les métriques en temps réel via un endpoint /log et calcule dynamiquement le volume, le taux de succès et la latence P95 sur l'endpoint /metrics.
 ---
 
 ## Architecture des Micro-services
