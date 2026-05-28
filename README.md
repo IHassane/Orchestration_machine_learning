@@ -81,30 +81,30 @@ git clone https://github.com/IHassane/Orchestration_machine_learning.git
 minikube start --driver=docker --cpus=4 --memory=6144
 minikube addons enable metrics-server
 
-# Création du namespace obligatoire
+### Création du namespace obligatoire
 kubectl create namespace projet-trigramme
 
-# Si erreurs de téléchargement -> Injection des clés de registre  (ImagePullBackOff)
+### Si erreurs de téléchargement -> Injection des clés de registre  (ImagePullBackOff)
 kubectl create secret docker-registry dockerhub-cred \
   --docker-username="" \
   --docker-password="" \
   --docker-email="" \
   -n projet-trigramme
 
-# 1. Application immédiate des quotas et limites du cas d'usage 1
+### Application immédiate des quotas et limites du cas d'usage 1
 kubectl apply -f k8s/quota.yaml
 kubectl apply -f k8s/limitrange.yaml
 
-# 2. Déploiement simultané des microservices (Inference, Preprocessing, Monitoring)
+### Déploiement simultané des microservices (Inference, Preprocessing, Monitoring)
 kubectl apply -f k8s/pipeline-ml.yaml
 
-# Attendre que tous les pods affichent le statut Running
+### Attendre que tous les pods affichent le statut Running
 kubectl get pods -n projet-trigramme
 
-# Ouvrir le tunnel réseau local (Conserver ce terminal ouvert pendant les tests)
+### Ouvrir le tunnel réseau local (Conserver ce terminal ouvert pendant les tests)
 minikube service preprocessing-svc -n projet-trigramme --url
 
 python scripts/load_test.py --case images --level nominal --url http://127.0.0.1:<PORT_DYNAMIQUE>/predict
 
-## Si besoin
+### Si besoin
 pip install requests
