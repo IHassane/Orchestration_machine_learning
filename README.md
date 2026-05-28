@@ -44,13 +44,21 @@ Parce que le Deep Learning est gourmand en ressources, l'architecture est optimi
 
 ```text
 .
-├── .github/workflows/ci-cd.yml   # Pipeline d'automatisation GitHub Actions
+├── .github/
+│   └── workflows/
+│       └── ci-cd.yml             # Pipeline d'automatisation Multi-Architecture GitHub Actions
+├── k8s/
+│   ├── quota.yaml                # Configuration du ResourceQuota (3500m CPU / 5Gi RAM)
+│   └── limitrange.yaml           # Bornes de ressources par conteneur (Max 2000m CPU / 2Gi RAM)
 ├── models/
-│   ├── binary_model.pt           # Poids du CNN entraîné (MobileNetV2)
-│   └── train_indices.npy         # Indices pour la reproductibilité
-├── ham10000/                     # Images des lésions (Ignoré par Git)
-├── .gitignore                    # Fichiers exclus du dépôt (Données lourdes, scripts locaux)
-└── README.md                     # Documentation du projet
+│   ├── binary_model.pt           # Poids du premier modèle CNN (Classification Binaire)
+│   └── multiclass_model.pt       # Poids du deuxième modèle CNN (Classification Multi-classes)
+├── scripts/
+│   └── load_test.py              # Script officiel d'évaluation de charge et de stress
+├── ADR.md                        # Architecture Decision Record (Séances 1 à 5 complet)
+├── pipeline.yaml                 # Manifest global incluant Monitoring, Preprocessing et Inférence
+├── .gitignore                    # Fichiers exclus (Dossier data/, résidus d'environnements virtuels)
+└── README.md                     # Documentation et guide de déploiement rapide sur Minikube                 # Documentation du projet
 
 ```
 
