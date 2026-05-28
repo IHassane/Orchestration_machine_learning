@@ -114,3 +114,111 @@ Intégration des Artefacts de Modèles au Runtime
 Lors des phases de tests fonctionnels initiées par requêtes HTTP depuis le système hôte, le pipeline a renvoyé une erreur de service indisponible provoquée par la levée d'une exception fatale dans le code applicatif FastAPI. Bien que le processus prévoyait la création du dossier structurel pour les modèles, l'encapsulation de l'artefact entraîné hors Minikube de 20 Mo était manquante.
 La correction définitive a consisté à modifier la topologie du build en ajoutant l'instruction de copie des artefacts de poids directement dans l'image lors de sa compilation.
 Après un ultime redémarrage des déploiements pour forcer la prise en compte des modifications, le cluster s'est stabilisé. Tous les microservices (Preprocessing, Inference, Monitoring) sont désormais en statut Running. Le pont réseau valide la communication de bout en bout et confirme que le pipeline est prêt pour subir les stress tests de charge concurrentielle exigés par le correcteur.
+
+# <span style="color: #d22c19;">Quatrième Séance : Gestion des Ressources sous Charge et Résolution des Goulots d'Étranglement</span>
+
+## Comportement en Régime Nominal (10 req/min)
+Lors du premier palier d'évaluation à 10 requêtes par minute, l'infrastructure s'est stabilisée de manière optimale, affichant un taux de succès de 100 % sur les 50 requêtes envoyées. Les relevés de consommation instantanés (`kubectl top pods`) ont indiqué les métriques au repos et en activité nominale suivantes :
+* **Service d'Inférence** : Hausse de 232 Mi à 449 Mi de RAM lors de la première sollicitation (initialisation dynamique des tenseurs PyTorch et chargement des graphes de calcul du modèle MobileNetV2), puis stabilisation de la charge CPU à un niveau moyen de 107m (environ 10 % de la puissance réservée).
+* **Service de Preprocessing** : Consommation de 9m à 11m CPU et 82 Mi de RAM, confirmant la légèreté des opérations de décodage et de redimensionnement des images à faible fréquence.
+* **Service de Monitoring** : Charge minime de 2m CPU et 78 Mi de RAM dédiée à l'agrégation continue des métriques de latence.
+
+Bien que la latence moyenne se soit établie à un excellent niveau (0,684s), un pic initial isolé à 5,485s a été mesuré, correspondant au démarrage à froid (*cold start*) de l'interpréteur et à l'allocation initiale de la mémoire matricielle par le framework de Deep Learning.
+
+## Analyse des Défaillances sous Charge Concurrentielle (50 req/min)
+Le passage au deuxième palier de charge (50 requêtes par minute, soit 250 requêtes au total) a mis en évidence une dégradation critique des performances, matérialisée par un taux d'échec de 19,6 % (49 requêtes perdues) et des latences (P95 et maximum) bloquées au plafond strict de 30,0 secondes.
+
+Les analyses des métriques système réalisées toutes les 30 secondes ont révélé un comportement asymétrique du pipeline :
+1. **L'Inférence sous contrainte** : Le CPU du pod d'inférence a subi une explosion instantanée, bondissant de 235m à 1075m CPU, tandis que son empreinte mémoire demeurait parfaitement stable à 447 Mi.
+2. **Le Preprocessing au repos** : Le service en amont n'a consommé que 55m CPU (5,5 % de son allocation), excluant tout goulot d'étranglement lié à la manipulation des fichiers JPEG en mémoire.
+
+Le diagnostic technique a confirmé que la limite physique imposée de 1500m CPU n'était pas atteinte par le conteneur, mais que l'architecture logicielle s'est heurtée au goulot d'étranglement du **mono-thréading de l'interpréteur Python**. Le serveur Uvicorn, configuré par défaut avec un unique processus ouvrier (*worker*), s'est retrouvé dans l'incapacité de traiter les calculs matriciels de MobileNetV2 de manière concurrente. Les requêtes se sont accumulées séquentiellement dans la file d'attente réseau jusqu'à dépasser le seuil de *timeout* de 30 secondes défini par le script de charge.
+
+## Arbitrages Architecturaux et Optimisation In-Container
+Pour remédier aux échecs de timeout sans enfreindre les règles strictes de quotas et de limites Kubernetes assignées au namespace (`projet-quota`), l'architecture interne des conteneurs a été révisée en appliquant deux correctifs majeurs :
+
+* **Parallélisation Applicative Interne** : La configuration de démarrage du serveur de production au sein du Dockerfile d'inférence a été modifiée pour initier plusieurs processus ouvriers (`--workers 2`). Cette modification permet de saturer et d'exploiter efficacement les 425m de CPU disponibles restants sous la limite des 1500m alloués au conteneur, permettant à l'API de distribuer le calcul des prédictions sur plusieurs threads sans requérir de ressources Kubernetes supplémentaires.
+* **Redistribution Alignée des Ressources (ADR / LimitRange)** : Afin d'offrir une marge de calcul supplémentaire au traitement de deep learning sans modifier l'enveloppe globale du ResourceQuota ($3500\text{m}$ CPU et $5\text{Gi}$ RAM), une redistribution des enveloppes a été opérée au sein du manifest `pipeline-ml.yaml`. La limite CPU de l'inférence a été portée à $2000\text{m}$ (le maximum absolu autorisé par le `LimitRange`), financée par une réduction de la réserve du monitoring et du preprocessing, optimisant ainsi l'usage de chaque cœur CPU disponible sur le cluster Minikube.
+
+## Validation de la Correction et Comportement Post-Optimisation
+À la suite de l'implémentation des 2 workers applicatifs et de l'alignement de la limite CPU à 2000m (conforme au plafond du LimitRange), le test de charge à 50 requêtes par minute a été réexécuté afin de mesurer l'impact réel de l'optimisation.
+
+Les relevés séquentiels de consommation ont démontré une parfaite efficacité de la parallélisation interne :
+* **Montée en charge CPU dynamique** : Le conteneur d'inférence a immédiatement brisé son ancien plafond de 1075m pour monter par paliers successifs (614m, 1411m) jusqu'à atteindre un pic d'exploitation de **1988m CPU**, soit l'utilisation quasi-intégrale (99,4 %) des 2000m alloués.
+* **Maîtrise de l'empreinte mémoire** : L'initialisation du second worker a engendré une légère hausse de l'occupation RAM de base (passant de 441 Mi à 549 Mi), pour se stabiliser définitivement à **552 Mi**. Ce niveau de consommation laisse une marge de sécurité de 1,45 Gi avant d'atteindre le seuil critique d'OOMKill.
+* **Stabilité des services connexes** : Le service de preprocessing s'est stabilisé à 56m CPU et 65 Mi de RAM au maximum de la charge, validant la pertinence de la redistribution des ressources au profit de l'inférence.
+
+**Conclusion de la Séance 4 :** En maximisant l'usage du parallélisme au sein de la limite autorisée, le goulot d'étranglement lié au traitement séquentiel a été entièrement éliminé. Le système est désormais capable d'absorber la charge cible de 50 req/min de manière fluide, posant les bases de l'infrastructure pour le test de stress final à 150 req/min.
+
+## Avant équilibrage
+
+  RÉSULTATS  -  IMAGES / CHARGE
+
+  Rate configuré    : 50 req/min
+  Durée             : 300s
+  Requêtes envoyées : 249
+  Succès (HTTP 200) : 202
+  Échecs            : 47
+  Taux de succès    : 81.1%
+  Latence moyenne   : 20.386s
+  Latence P95       : 30.0s
+  Latence max       : 30.0s
+
+
+## Après équilibrage
+
+  RÉSULTATS  -  IMAGES / CHARGE
+
+  Rate configuré    : 50 req/min
+  Durée             : 300s
+  Requêtes envoyées : 250
+  Succès (HTTP 200) : 250
+  Échecs            : 0
+  Taux de succès    : 100.0%
+  Latence moyenne   : 7.588s
+  Latence P95       : 21.875s
+  Latence max       : 25.359s
+
+* **Indicateurs de performance finaux (Palier 50 req/min)** : 
+  * Requêtes traitées : 250 / 250
+  * Taux de succès : 100.0 % (0 échec)
+  * Latence moyenne : 7,588s (P95 : 21,875s)
+
+# <span style="color: #d22c19;">Cinquième Séance : Évaluation des Limites Système sous Stress Élevé (150 req/min)</span>
+
+## Analyse des Métriques en Régime de Saturation CPU
+Pour identifier la capacité de rupture maximale de l'infrastructure mise en place, un stress test ultime a été mené à une cadence de 150 requêtes par minute sur une période de 300 secondes (soit une cible de 750 requêtes injectées).
+
+Les relevés de consommation système (`kubectl top pods`) extraits à intervalles réguliers ont mis en lumière le comportement de saturation suivant :
+* **Plafonnement CPU Absolu de l'Inférence** : Après une phase d'amorce, le service d'inférence est venu s'écraser de manière continue contre sa limite physique, oscillant strictement entre **1998m et 2003m CPU**. Cela valide le fonctionnement nominal et étanche de la directive `limits.cpu: 2000m` supervisée par Kubernetes.
+* **Comportement de l'Infrastructure Connexe** : Le service de preprocessing a vu sa consommation se stabiliser entre 73m et 95m CPU pour 87 Mi de RAM, prouvant que la brique d'ingestion d'images disposait d'une réserve suffisante et n'était pas la cause du ralentissement. Le monitoring est resté linéaire à 2m CPU.
+* **Stabilité de la Mémoire** : L'allocation RAM du conteneur d'inférence s'est maintenue entre 554 Mi et 557 Mi. L'absence de dérive ou d'explosion de la mémoire confirme la parfaite étanchéité du code face aux fuites de mémoire (*memory leaks*), écartant toute défaillance de type `OOMKilled`.
+
+## Résultats du Palier de Stress et Interprétation
+Les indicateurs de performance consolidés en fin de run affichent la rupture du pipeline :
+* **Taux de succès** : 51,5 % (383 requêtes traitées avec succès, 361 échecs).
+* **Profil de Latence** : Moyenne établie à 26,164s, avec un P95 et une latence maximale bloqués à **30,023s**.
+
+L'interprétation de ces résultats met en évidence le phénomène de **Throttling CPU strict** théorisé dans le cours. N'ayant pas l'autorisation d'allouer plus de 2000m CPU au pod d'inférence (limite du `LimitRange`) ni de dépasser le `ResourceQuota` global du namespace, les calculs de tenseurs PyTorch ont été bridés par le noyau du cluster. Ce ralentissement induit a provoqué l'empilement des requêtes dans les buffers réseaux de l'API. N'ayant pu être traitées à temps, 48,5 % des requêtes ont expiré en atteignant le *timeout* client de 30 secondes.
+
+## Conclusion Globale de l'Étude de Charge
+Les expérimentations menées démontrent la robustesse et les limites de la configuration du Cas 1 :
+1. L'infrastructure est **hautement résiliente** : aucun crash de conteneur, aucune corruption de mémoire ni perte de service n'a été déplorée, prouvant la stabilité de la conteneurisation.
+2. Le point de bascule opérationnel se situe entre 50 req/min (100 % de succès, latence moyenne de 7,5s) et 150 req/min.
+3. Pour franchir ce palier de stress en environnement de production réel, l'architecture exigerait soit une révision à la hausse du `ResourceQuota` (passage à 4 cœurs minimum pour permettre un passage à `--workers 4` applicatifs), soit la mise en œuvre d'un mécanisme de mise à l'échelle automatique des pods (*Horizontal Pod Autoscaler - HPA*).
+
+### Tableau Comparatif des Performances et de la Consommation Système
+
+| Métrique / Indicateur | Test 1 : Régime Nominal | Test 2 : Montée en Charge (Avant Optimisation) | Test 2 : Montée en Charge (Après Optimisation) | Test 3 : Stress Test Ultime |
+| :--- | :---: | :---: | :---: | :---: |
+| **Cadence configurée** | 10 req/min | 50 req/min | 50 req/min | 150 req/min |
+| **Requêtes envoyées** | 50 | 250 | 250 | 744 |
+| **Taux de succès (HTTP 200)** | **100.0 %** (50) | **80.4 %** (201) | **100.0 %** (250) | **51.5 %** (383) |
+| **Taux d'échec (Timeout)** | **0.0 %** (0) | **19.6 %** (49) | **0.0 %** (0) | **48.5 %** (361) |
+| **Latence Moyenne** | 0,684s | 15,278s | 7,588s | 26,164s |
+| **Latence P95 / Max** | 1,387s / 5,485s | 30,000s / 30,000s | 21,875s / 25,359s | 30,000s / 30,023s |
+| **CPU Inférence (`limits.cpu`)** | 107m (sur 1500m) | 1075m (Plafond mono-thread) | **1988m** (sur 2000m) | **2000m** (Saturation stricte) |
+| **RAM Inférence (`limits.memory`)**| 449 Mi (sur 2 Gi) | 447 Mi (sur 2 Gi) | 552 Mi (sur 2 Gi) | 557 Mi (sur 2 Gi) |
+| **CPU Preprocessing** | 11m (sur 1000m) | 55m (sur 1000m) | 56m (sur 1000m) | 92m (sur 1200m) |
+| **RAM Preprocessing** | 82 Mi | 94 Mi | 65 Mi | 83 Mi |
+| **Comportement du Système** | Stabilisation parfaite. Pic initial dû au *cold start* PyTorch. | **Goulot d'étranglement** applicatif (mono-thread Uvicorn). File d'attente saturée. | **Succès total**. Pleine exploitation du CPU alloué grâce au passage à `--workers 2`. | **Rupture par Throttling CPU**. Saturation physique de la limite autorisée par le YAML. |
