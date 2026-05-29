@@ -26,7 +26,7 @@ Pour optimiser les ressources, l'application est découpée en **trois briques**
 
 1. **Service Preprocessing :** Reçoit l'image brute, la décompresse, la redimensionne au format standardisé du CNN (224x224 pixels) et applique la normalisation.
 2. **Service Inférence (Le cœur du CNN) :** Charge le modèle en mémoire. Il exécute d'abord un filtre binaire (bénin/malin). Si la lésion est suspecte, il active en cascade un second classifieur multi-classes (7 types de maladies) pour affiner le diagnostic.
-3. **Service Monitoring :** Enregistre les métriques d'utilisation en temps réel et expose un endpoint lisible par Prometheus.
+3. **Service Monitoring :** Enregistre les métriques d'utilisation en temps réel.
 
 ---
 
