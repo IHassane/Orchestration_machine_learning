@@ -39,13 +39,14 @@ metadata:
   name: monitoring-svc
   namespace: projet-trigramme
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: monitoring
   ports:
     - protocol: TCP
       port: 9090
       targetPort: 9090
+      nodePort: 30002
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -142,10 +143,11 @@ metadata:
   name: preprocessing-svc
   namespace: projet-trigramme
 spec:
-  type: ClusterIP
+  type: NodePort
   selector:
     app: preprocessing
   ports:
     - protocol: TCP
       port: 8001
       targetPort: 8001
+      nodePort: 30001

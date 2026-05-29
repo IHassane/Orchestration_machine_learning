@@ -104,3 +104,42 @@ python scripts/load_test.py --case images --level nominal --url http://127.0.0.1
 
 ### Si besoin
 pip install requests
+
+
+### Pour utiliser le front : 
+
+Commande à executer dans un terminal
+
+```text
+cat << 'EOF' > start_tunnel.sh
+#!/bin/bash
+echo "Fixation des ports de la stack MLOps..."
+
+# Suppression des anciens tunnels s'ils existent
+pkill -f "port-forward" 2>/dev/null
+
+# Lancement des deux port-forwards en tâche de fond
+kubectl port-forward svc/preprocessing-svc 8001:8001 -n projet-trigramme > /tmp/k8s_preprocess.log 2>&1 &
+kubectl port-forward svc/monitoring-svc 9090:9090 -n projet-trigramme > /tmp/k8s_monitoring.log 2>&1 &
+
+# Petite pause pour laisser à K8s le temps d'initier la connexion
+sleep 2
+
+echo "🔍 Vérification des processus :"
+ps aux | grep "port-forward svc/" | grep -v grep
+
+echo "------------------------------------------------"
+echo "Si deux lignes s'affichent au-dessus, c'est tout bon !"
+EOF
+
+chmod +x start_tunnel.sh
+./start_tunnel.sh
+
+```
+
+Ouvrir le fichier index.html dans un navigateur
+
+
+### Pour fermer les ports
+
+pkill -f "port-forward"

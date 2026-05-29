@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,7 +9,9 @@
         /* ============================================
            RESET & VARIABLES
            ============================================ */
-        *, *::before, *::after {
+        *,
+        *::before,
+        *::after {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
@@ -134,8 +137,15 @@
         }
 
         @keyframes pulse-dot {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.4; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.4;
+            }
         }
 
         /* ============================================
@@ -246,8 +256,13 @@
         }
 
         @keyframes slideDown {
-            from { transform: translateY(-100%); }
-            to { transform: translateY(0); }
+            from {
+                transform: translateY(-100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
         }
 
         /* ============================================
@@ -269,8 +284,15 @@
         }
 
         @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
         /* ============================================
@@ -473,7 +495,9 @@
         }
 
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
 
         /* Results Panel */
@@ -528,42 +552,6 @@
             background: var(--accent-green-bg);
             color: var(--accent-green);
             border: 1px solid rgba(16, 185, 129, 0.2);
-        }
-
-        .result-class.nevus {
-            background: var(--accent-green-bg);
-            color: var(--accent-green);
-            border: 1px solid rgba(16, 185, 129, 0.2);
-        }
-
-        .result-class.seborrheic {
-            background: rgba(245, 158, 11, 0.1);
-            color: var(--accent-yellow);
-            border: 1px solid rgba(245, 158, 11, 0.2);
-        }
-
-        .result-class.basal {
-            background: var(--accent-purple-bg);
-            color: var(--accent-purple);
-            border: 1px solid rgba(139, 92, 246, 0.2);
-        }
-
-        .result-class.actinic {
-            background: rgba(239, 68, 68, 0.1);
-            color: var(--accent-red);
-            border: 1px solid rgba(239, 68, 68, 0.2);
-        }
-
-        .result-class.dermatofibroma {
-            background: rgba(168, 85, 247, 0.1);
-            color: #a855f7;
-            border: 1px solid rgba(168, 85, 247, 0.2);
-        }
-
-        .result-class.melanoma {
-            background: var(--accent-red-bg);
-            color: var(--accent-red);
-            border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
         .confidence-bar-container {
@@ -781,9 +769,17 @@
             border-radius: 3px 3px 0 0;
         }
 
-        .kpi-card:nth-child(1)::before { background: var(--accent-blue); }
-        .kpi-card:nth-child(2)::before { background: var(--accent-green); }
-        .kpi-card:nth-child(3)::before { background: var(--accent-purple); }
+        .kpi-card:nth-child(1)::before {
+            background: var(--accent-blue);
+        }
+
+        .kpi-card:nth-child(2)::before {
+            background: var(--accent-green);
+        }
+
+        .kpi-card:nth-child(3)::before {
+            background: var(--accent-purple);
+        }
 
         .kpi-card:hover {
             transform: translateY(-2px);
@@ -892,11 +888,6 @@
             color: var(--accent-red);
         }
 
-        .badge-neutral {
-            background: rgba(100, 116, 139, 0.15);
-            color: var(--text-secondary);
-        }
-
         /* ============================================
            LOADING OVERLAY
            ============================================ */
@@ -983,8 +974,15 @@
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.6;
+            }
         }
 
         /* Last refresh timestamp */
@@ -996,6 +994,7 @@
         }
     </style>
 </head>
+
 <body>
 
     <div class="alert-banner" id="alertBanner">
@@ -1043,12 +1042,8 @@
                         </div>
 
                         <div class="upload-zone" id="uploadZone">
-                            <input
-                                type="file"
-                                class="upload-input"
-                                id="fileInput"
-                                accept="image/jpeg,image/png,image/webp"
-                            />
+                            <input type="file" class="upload-input" id="fileInput"
+                                accept="image/jpeg,image/png,image/webp" />
                             <span class="upload-icon">🖼️</span>
                             <p class="upload-text">Glissez-déposez votre image ici</p>
                             <p class="upload-hint">ou cliquez pour parcourir — JPEG, PNG, WebP</p>
@@ -1197,10 +1192,9 @@
            CONFIGURATION
            ============================================ */
         const CONFIG = {
-            INFERENCE_URL: 'http://localhost:50658/predict',
-            METRICS_URL: 'http://localhost:9090/metrics',
-            RESET_URL: 'http://localhost:9090/reset',
-            AUTO_REFRESH_INTERVAL: 5000,
+            INFERENCE_URL: 'http://127.0.0.1:8001/predict',
+            METRICS_URL: 'http://127.0.0.1:9090/metrics',
+            RESET_URL: 'http://127.0.0.1:9090/reset',
         };
 
         /* ============================================
@@ -1251,7 +1245,6 @@
            TAB 1 — INFERENCE / PREDICTION
            ============================================ */
 
-        // --- File Upload ---
         const uploadZone = document.getElementById('uploadZone');
         const fileInput = document.getElementById('fileInput');
 
@@ -1316,7 +1309,6 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
         }
 
-        // --- Analysis ---
         async function analyzeImage() {
             if (!selectedFile) {
                 showAlert('Veuillez sélectionner une image d\'abord.', 'error');
@@ -1332,7 +1324,6 @@
             btnText.textContent = 'Analyse en cours...';
 
             const formData = new FormData();
-            // CORRECTION: Changement de 'image' vers 'file' pour matcher l'API attendue par ton curl
             formData.append('file', selectedFile, selectedFile.name);
 
             try {
@@ -1365,32 +1356,30 @@
             const content = document.getElementById('resultContent');
             content.classList.add('visible');
 
-            // CORRECTION: Ajout de 'final_diagnosis' pour lire la réponse propre de ton modèle
-            const classLabel = data.final_diagnosis || data.class_label || data.classe || data.prediction || data.class || 'Inconnue';
+            const classLabel = data.final_diagnosis || data.class_label || data.classe || data.prediction || 'Inconnue';
             const classEl = document.getElementById('resultClass');
             classEl.textContent = classLabel;
             classEl.className = 'result-class';
 
-            // Classe CSS dynamique si disponible (benign ou malignant)
-            if (classLabel === 'benign' || classLabel === 'malignant') {
-                classEl.classList.add(classLabel);
+            if (classLabel === 'benign' || classLabel.startsWith('malignant')) {
+                classEl.classList.add(classLabel.includes('malignant') ? 'malignant' : 'benign');
             }
 
-            // Calcul du score de confiance basé sur le final_diagnosis détecté
             let targetScore = 0;
             if (data.binary_scores && data.binary_scores[classLabel] !== undefined) {
                 targetScore = data.binary_scores[classLabel];
+            } else if (data.binary_scores && classLabel.startsWith('malignant') && data.binary_scores['malignant'] !== undefined) {
+                targetScore = data.binary_scores['malignant'];
             } else {
-                targetScore = data.confidence ?? data.confidence_score ?? data.score ?? 0;
+                targetScore = data.confidence ?? data.score ?? 0;
             }
-            
+
             const confidence = targetScore * 100;
             document.getElementById('confidenceValue').textContent = `${confidence.toFixed(1)}%`;
             setTimeout(() => {
                 document.getElementById('confidenceBar').style.width = `${Math.min(confidence, 100)}%`;
             }, 50);
 
-            // Details
             const detailsEl = document.getElementById('resultDetails');
             detailsEl.innerHTML = '';
 
@@ -1400,16 +1389,13 @@
                 { label: 'Lésion Suspecte', value: data.is_suspect ? 'Oui ⚠️' : 'Non' },
             ];
 
-            // Remplissage dynamique des autres variables renvoyées
-            const knownKeys = ['class_label', 'classe', 'prediction', 'class', 'confidence', 'confidence_score', 'score', 'binary', 'is_malignant', 'final_diagnosis', 'is_suspect', 'binary_scores', 'routing_triggered'];
-            
-            // Si binary_scores est présent, on l'affiche proprement
             if (data.binary_scores) {
                 Object.entries(data.binary_scores).forEach(([key, val]) => {
                     details.push({ label: `Probabilité [${key}]`, value: `${(val * 100).toFixed(2)}%` });
                 });
             }
 
+            const knownKeys = ['class_label', 'classe', 'prediction', 'class', 'confidence', 'score', 'binary', 'is_malignant', 'final_diagnosis', 'is_suspect', 'binary_scores', 'routing_triggered'];
             Object.entries(data).forEach(([key, value]) => {
                 if (!knownKeys.includes(key)) {
                     details.push({ label: key.replace(/_/g, ' '), value: formatValue(value) });
@@ -1423,7 +1409,6 @@
                 detailsEl.appendChild(div);
             });
 
-            // Raw JSON
             document.getElementById('jsonOutput').textContent = JSON.stringify(data, null, 2);
             document.getElementById('jsonOutput').classList.remove('visible');
         }
@@ -1471,32 +1456,30 @@
         }
 
         function renderMetrics(data) {
-            // KPI 1: Total Requests
-            const total = data.total_requests ?? data.total ?? data.requests ?? 0;
+            // Volume Total
+            const total = data.total_requests ?? 0;
             document.getElementById('kpiTotal').textContent = total.toLocaleString('fr-FR');
 
-            // KPI 2: Success Rate
-            const successRate = data.success_rate_pct ?? data.success_rate ?? data.rate ?? 0;
+            // Taux de Succès
+            const successRate = data.success_rate_pct ?? 100.0;
             document.getElementById('kpiSuccess').textContent = `${successRate.toFixed(1)}%`;
             document.getElementById('kpiGaugeFill').style.width = `${Math.min(successRate, 100)}%`;
 
-            // KPI 3: Latency
-            const p95 = data.latency_p95_s ?? data.latency_p95 ?? data.p95 ?? 0;
-            const avg = data.latency_avg_s ?? data.latency_avg ?? data.avg ?? 0;
+            // Latence (Sec -> Ms)
+            const p95 = data.latency_p95_s ?? 0;
+            const avg = data.latency_avg_s ?? 0;
             document.getElementById('kpiLatency').textContent = `${(p95 * 1000).toFixed(0)}ms`;
             document.getElementById('kpiLatencySub').textContent = `P95: ${(p95 * 1000).toFixed(0)}ms | Moy: ${(avg * 1000).toFixed(0)}ms`;
 
-            // HTTP Table
-            const http200 = data.http_200 ?? data.success_count ?? data.ok_count ?? 0;
-            const httpError = data.http_errors ?? data.error_count ?? data.fail_count ?? 0;
-            const httpTotal = http200 + httpError;
+            // CORRECTION: Alignement exact avec les clés de ton API Python
+            const http200 = data.http_200_count ?? data.http_200 ?? data.success_count ?? 0;
+            const httpError = data.errors_count ?? data.http_errors ?? data.error_count ?? 0;
 
             document.getElementById('http200Count').textContent = http200.toLocaleString('fr-FR');
             document.getElementById('httpErrorCount').textContent = httpError.toLocaleString('fr-FR');
-            document.getElementById('http200Pct').textContent = httpTotal > 0 ? `${((http200 / httpTotal) * 100).toFixed(1)}%` : '—';
-            document.getElementById('httpErrorPct').textContent = httpTotal > 0 ? `${((httpError / httpTotal) * 100).toFixed(1)}%` : '—';
+            document.getElementById('http200Pct').textContent = total > 0 ? `${((http200 / total) * 100).toFixed(1)}%` : '0.0%';
+            document.getElementById('httpErrorPct').textContent = total > 0 ? `${((httpError / total) * 100).toFixed(1)}%` : '0.0%';
 
-            // Last refresh
             const now = new Date();
             document.getElementById('lastRefresh').textContent = `Dernière mise à jour : ${now.toLocaleTimeString('fr-FR')}`;
         }
@@ -1567,10 +1550,10 @@
            INITIALIZATION
            ============================================ */
         document.addEventListener('DOMContentLoaded', () => {
-            // Initial metrics fetch
             fetchMetrics();
             startAutoRefresh();
         });
     </script>
 </body>
+
 </html>
