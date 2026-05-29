@@ -3,10 +3,25 @@ import io
 import time
 import requests
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
+# --- AJOUT DES CORS ---
+from fastapi.middleware.cors import CORSMiddleware
+# ----------------------
 from PIL import Image
 import numpy as np
 
 app = FastAPI(title="HAM10000 Preprocessing Service")
+
+# --- AJOUT DES CORS ---
+# On autorise toutes les origines (pratique en dev / local), 
+# tous les headers et toutes les méthodes HTTP (POST, GET, etc.)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], 
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# ----------------------
 
 # Récupération des URLs depuis les variables d'environnement
 INFERENCE_SERVICE_URL = os.getenv(
