@@ -39,7 +39,7 @@ Parce que le Deep Learning est gourmand en ressources, l'architecture est optimi
 
 ---
 
-## Structure du Dépôt
+## Structure du Dépôt 
 
 ```text
 .
