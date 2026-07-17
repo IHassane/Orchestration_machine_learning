@@ -1,22 +1,9 @@
 from fastapi import FastAPI, HTTPException
-# --- AJOUT DES CORS ---
-from fastapi.middleware.cors import CORSMiddleware
-# ----------------------
 from pydantic import BaseModel
 import numpy as np
 from typing import List
 
 app = FastAPI(title="HAM10000 Monitoring Service")
-
-# --- AJOUT DES CORS ---
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"], 
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-# ----------------------
 
 # Stockage en mémoire des latences et des statuts pour rester ultra-léger
 latencies: List[float] = []
