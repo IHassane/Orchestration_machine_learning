@@ -11,9 +11,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 # Force globalement l'index CPU pour torch
+# Force l'utilisation de moins de ressources durant l'install
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir torch==2.2.1 torchvision==0.17.1 numpy<2.0 --index-url https://download.pytorch.org/whl/cpu
-
+    pip install --no-cache-dir --no-build-isolation torch==2.2.1 torchvision==0.17.1 numpy<2.0 --index-url https://download.pytorch.org/whl/cpu
 # On installe le reste (FastAPI, Uvicorn, etc.)
 RUN pip install --no-cache-dir -r requirements.txt
 
