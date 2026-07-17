@@ -1195,6 +1195,7 @@
             INFERENCE_URL: 'http://127.0.0.1:8001/predict',
             METRICS_URL: 'http://127.0.0.1:9090/metrics',
             RESET_URL: 'http://127.0.0.1:9090/reset',
+            AUTO_REFRESH_INTERVAL: 5000 // Ajout de la variable manquante pour l'auto-refresh
         };
 
         /* ============================================
@@ -1340,6 +1341,7 @@
                 const data = await response.json();
                 displayResult(data);
                 showAlert('Analyse terminée avec succès !', 'success');
+                updateStatus(true);
             } catch (error) {
                 console.error('Erreur analyse:', error);
                 showAlert(`Impossible de contacter le service d'inférence : ${error.message}`);
@@ -1356,52 +1358,67 @@
             const content = document.getElementById('resultContent');
             content.classList.add('visible');
 
-            const classLabel = data.final_diagnosis || data.class_label || data.classe || data.prediction || 'Inconnue';
+            // 1. Diagnostic Final
+            const classLabel = data.final_diagnosis || data.class_label || 'Inconnue';
             const classEl = document.getElementById('resultClass');
             classEl.textContent = classLabel;
             classEl.className = 'result-class';
 
-            if (classLabel === 'benign' || classLabel.startsWith('malignant')) {
-                classEl.classList.add(classLabel.includes('malignant') ? 'malignant' : 'benign');
+            // Application des styles selon le diagnostic final
+            if (classLabel === 'benign') {
+                classEl.classList.add('benign');
+            } else {
+                // S'il s'agit d'un diagnostic suspect (malin ou classes spécifiques comme mel, bcc, akiec)
+                classEl.classList.add('malignant');
             }
 
+            // 2. Score de confiance global pour l'affichage de la jauge
             let targetScore = 0;
-            if (data.binary_scores && data.binary_scores[classLabel] !== undefined) {
+            if (data.routing_triggered && data.multiclass_scores && data.multiclass_scores[classLabel] !== undefined) {
+                // Si le routage s'est déclenché, on extrait la confiance depuis le dictionnaire multiclasse
+                targetScore = data.multiclass_scores[classLabel];
+            } else if (data.binary_scores && data.binary_scores[classLabel] !== undefined) {
                 targetScore = data.binary_scores[classLabel];
-            } else if (data.binary_scores && classLabel.startsWith('malignant') && data.binary_scores['malignant'] !== undefined) {
+            } else if (data.binary_scores && data.binary_scores['malignant'] !== undefined && classLabel !== 'benign') {
                 targetScore = data.binary_scores['malignant'];
             } else {
                 targetScore = data.confidence ?? data.score ?? 0;
             }
 
-            const confidence = targetScore * 100;
-            document.getElementById('confidenceValue').textContent = `${confidence.toFixed(1)}%`;
+            const confidencePct = targetScore * 100;
+            document.getElementById('confidenceValue').textContent = `${confidencePct.toFixed(1)}%`;
             setTimeout(() => {
-                document.getElementById('confidenceBar').style.width = `${Math.min(confidence, 100)}%`;
+                document.getElementById('confidenceBar').style.width = `${Math.min(confidencePct, 100)}%`;
             }, 50);
 
+            // 3. Construction des détails du diagnostic
             const detailsEl = document.getElementById('resultDetails');
             detailsEl.innerHTML = '';
 
             const details = [
                 { label: 'Diagnostic Final', value: classLabel },
-                { label: 'Score de Confiance', value: `${confidence.toFixed(2)}%` },
+                { label: 'Score de Confiance', value: `${confidencePct.toFixed(2)}%` },
+                { label: 'Routage Multiclasse', value: data.routing_triggered ? 'Déclenché ⚙️' : 'Désactivé' },
                 { label: 'Lésion Suspecte', value: data.is_suspect ? 'Oui ⚠️' : 'Non' },
             ];
 
+            // Affichage des scores binaires d'origine
             if (data.binary_scores) {
                 Object.entries(data.binary_scores).forEach(([key, val]) => {
-                    details.push({ label: `Probabilité [${key}]`, value: `${(val * 100).toFixed(2)}%` });
+                    details.push({ label: `Binaire [${key}]`, value: `${(val * 100).toFixed(2)}%` });
                 });
             }
 
-            const knownKeys = ['class_label', 'classe', 'prediction', 'class', 'confidence', 'score', 'binary', 'is_malignant', 'final_diagnosis', 'is_suspect', 'binary_scores', 'routing_triggered'];
-            Object.entries(data).forEach(([key, value]) => {
-                if (!knownKeys.includes(key)) {
-                    details.push({ label: key.replace(/_/g, ' '), value: formatValue(value) });
-                }
-            });
+            // Affichage des scores multiclasses secondaires si le routage s'est déclenché
+            if (data.routing_triggered && data.multiclass_scores) {
+                Object.entries(data.multiclass_scores).forEach(([key, val]) => {
+                    // On met en avant la classe prédite dominante
+                    const labelPrefix = key === classLabel ? `★ Multi [${key}]` : `Multi [${key}]`;
+                    details.push({ label: labelPrefix, value: `${(val * 100).toFixed(2)}%` });
+                });
+            }
 
+            // Affichage dynamique dans le DOM
             details.forEach(({ label, value }) => {
                 const div = document.createElement('div');
                 div.className = 'detail-item';
@@ -1471,7 +1488,7 @@
             document.getElementById('kpiLatency').textContent = `${(p95 * 1000).toFixed(0)}ms`;
             document.getElementById('kpiLatencySub').textContent = `P95: ${(p95 * 1000).toFixed(0)}ms | Moy: ${(avg * 1000).toFixed(0)}ms`;
 
-            // CORRECTION: Alignement exact avec les clés de ton API Python
+            // Alignement exact avec les clés de l'API Python
             const http200 = data.http_200_count ?? data.http_200 ?? data.success_count ?? 0;
             const httpError = data.errors_count ?? data.http_errors ?? data.error_count ?? 0;
 
