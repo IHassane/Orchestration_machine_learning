@@ -4,36 +4,40 @@ import torch.nn as nn
 from torchvision import models
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="HAM10000 Inference Service")
-
-# Forcer l'utilisation du CPU dans le cluster Kubernetes (conforme aux specs K8s/Minikube)
+# Configuration du processeur (CPU pour Kubernetes/Minikube)
 DEVICE = torch.device("cpu")
 print("[INFO] Service d'inférence configuré sur : CPU")
 
-# Configuration des classes issues de ton entraînement
-MULTICLASS_CLASSES = ["bkl", "df", "mel", "meln", "nv", "vascular", "derm"]
-SEUIL_MALIGNANT = 0.5  # Seuil de décision défini dans ton ADR
+# CORRECTIF : Les vraies classes définies dans training.py
+MULTICLASS_CLASSES = ["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"]
+SEUIL_MALIGNANT = 0.5
 
-# Variables globales pour stocker les modèles en mémoire
+# Variables globales pour les modèles
 binary_model = None
 multiclass_model = None
 
 class InferenceRequest(BaseModel):
-    tensor: list  # Reçoit le tenseur sérialisé en liste JSON depuis le preprocessing
+    tensor: list  # Reçoit le tenseur sérialisé en liste JSON
 
 def load_mobilenet_v2_binary():
     model = models.mobilenet_v2(weights=None)
     
-    # Structure exacte de ton entraînement binaire : 128 neurones, pas de 2e dropout
+    # CORRECTIF : Doit correspondre EXACTEMENT à la structure de training.py
     model.classifier = nn.Sequential(
-        nn.Dropout(0.3),
-        nn.Linear(1280, 128),
+        nn.Dropout(0.4),
+        nn.Linear(1280, 256),
+        nn.BatchNorm1d(256),
         nn.ReLU(),
-        nn.Linear(128, 2)
+        nn.Dropout(0.3),
+        nn.Linear(256, 2)
     )
     
     path = "models/binary_model.pt"
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Le fichier de modèle binaire est introuvable au chemin : {path}")
+        
     checkpoint = torch.load(path, map_location=DEVICE)
     if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
         model.load_state_dict(checkpoint["model_state_dict"])
@@ -47,16 +51,24 @@ def load_mobilenet_v2_binary():
 def load_mobilenet_v2_multiclass():
     model = models.mobilenet_v2(weights=None)
     
-    # Structure exacte de ton entraînement multi-classes : 256 neurones + 2e dropout
+    # CORRECTIF : Doit correspondre EXACTEMENT à la structure multiclasse de training.py
     model.classifier = nn.Sequential(
+        nn.Dropout(0.4),
+        nn.Linear(1280, 512),
+        nn.BatchNorm1d(512),
+        nn.ReLU(),
         nn.Dropout(0.3),
-        nn.Linear(1280, 256),
+        nn.Linear(512, 128),
+        nn.BatchNorm1d(128),
         nn.ReLU(),
         nn.Dropout(0.2),
-        nn.Linear(256, len(MULTICLASS_CLASSES))
+        nn.Linear(128, len(MULTICLASS_CLASSES))
     )
     
     path = "models/multiclass_model.pt"
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Le fichier de modèle multiclasse est introuvable au chemin : {path}")
+        
     checkpoint = torch.load(path, map_location=DEVICE)
     if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
         model.load_state_dict(checkpoint["model_state_dict"])
@@ -67,9 +79,9 @@ def load_mobilenet_v2_multiclass():
     model.eval()
     return model
 
-@app.on_event("startup")
-def startup_event():
-    """Chargement unique des modèles au démarrage du conteneur (Gain de perf massif)."""
+# CORRECTIF : Remplacement du startup_event déprécié par le gestionnaire moderne Lifespan
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     global binary_model, multiclass_model
     try:
         print("[INFO] Chargement des modèles MobileNetV2 en mémoire...")
@@ -77,9 +89,17 @@ def startup_event():
         multiclass_model = load_mobilenet_v2_multiclass()
         print("[INFO] Modèles chargés avec succès et prêts pour l'inférence.")
     except Exception as e:
+        # En cas d'erreur de chargement, on affiche clairement l'erreur de dimension ou de chemin
         print(f"[ERREUR CRITIQUE] Impossible de charger les modèles : {str(e)}")
-        # On ne lève pas d'exception ici pour laisser le conteneur démarrer,
-        # le liveness/readiness probe gérera le statut.
+        # Optionnel : lever l'exception pour forcer le crash du conteneur en local et voir le bug direct
+        # raise e 
+    yield
+    # Nettoyage à l'extinction
+    binary_model = None
+    multiclass_model = None
+
+# On initialise FastAPI avec le lifespan
+app = FastAPI(title="HAM10000 Inference Service", lifespan=lifespan)
 
 @app.post("/predict")
 async def predict(payload: InferenceRequest):
@@ -87,17 +107,15 @@ async def predict(payload: InferenceRequest):
         raise HTTPException(status_code=503, detail="Modèles non disponibles ou en cours de chargement.")
     
     try:
-        # 1. Reconversion de la liste JSON en Tenseur PyTorch
-        # Le preprocessing envoie une forme (1, C, H, W)
-        # .unsqueeze(0) transforme la forme (3, 224, 224) en (1, 3, 224, 224)
+        # Reconversion en tenseur PyTorch (batch size = 1)
         input_tensor = torch.tensor(payload.tensor, dtype=torch.float32).unsqueeze(0).to(DEVICE)
         
-        # 2. Inférence Binaire (Filtre Principal)
+        # 1. Inférence Binaire
         with torch.no_grad():
             binary_outputs = binary_model(input_tensor)
             binary_probs = torch.softmax(binary_outputs, dim=1)[0]
             
-        # Supposons que l'index 1 correspond à 'malignant' dans ton LabelEncoder binaire
+        # Index 1 = Malignant (selon training.py)
         malignant_prob = binary_probs[1].item()
         benign_prob = binary_probs[0].item()
         
@@ -111,14 +129,13 @@ async def predict(payload: InferenceRequest):
             "final_diagnosis": "benign" if malignant_prob < SEUIL_MALIGNANT else "malignant_unclassified"
         }
         
-        # 3. Logique de Routage (Règle Métier de l'ADR)
+        # 2. Logique de Routage
         if result["is_suspect"]:
             result["routing_triggered"] = True
             with torch.no_grad():
                 multi_outputs = multiclass_model(input_tensor)
                 multi_probs = torch.softmax(multi_outputs, dim=1)[0]
                 
-            # Extraire la classe dominante du modèle secondaire
             top_idx = torch.argmax(multi_probs).item()
             result["final_diagnosis"] = MULTICLASS_CLASSES[top_idx]
             result["multiclass_scores"] = {
@@ -132,7 +149,6 @@ async def predict(payload: InferenceRequest):
 
 @app.get("/health")
 def health_check():
-    """Indique à Kubernetes si le conteneur est opérationnel et si les modèles sont bien là."""
     if binary_model is not None and multiclass_model is not None:
         return {"status": "healthy", "models_loaded": True}
     return {"status": "starting", "models_loaded": False}
