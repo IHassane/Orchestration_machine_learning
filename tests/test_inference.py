@@ -62,8 +62,11 @@ def test_predict_malignant_routing_case(mocker):
     
     # Pour le cas malin : faible valeur sur index 0, forte sur index 1 (seuil dépassé)
     mock_binary.return_value = torch.tensor([[-2.0, 2.0]])
-    # Pour le modèle multiclasse : on met une forte valeur sur l'index 2 (qui correspond à "mel")
-    mock_multiclass.return_value = torch.tensor([[-1.0, -1.0, 4.0, -1.0, -1.0, -1.0, -1.0]])
+    
+    # CORRECTIF : L'index 4 correspond à "mel" dans la liste MULTICLASS_CLASSES du nouveau app.py
+    # ["akiec", "bcc", "bkl", "df", "mel", "nv", "vasc"]
+    # On met donc la valeur la plus haute (4.0) à l'index 4.
+    mock_multiclass.return_value = torch.tensor([[-1.0, -1.0, -1.0, -1.0, 4.0, -1.0, -1.0]])
 
     inference_mod.binary_model = mock_binary
     inference_mod.multiclass_model = mock_multiclass
@@ -75,7 +78,7 @@ def test_predict_malignant_routing_case(mocker):
     res = response.json()
     assert res["is_suspect"] is True
     assert res["routing_triggered"] is True
-    assert res["final_diagnosis"] == "mel"  # Index 2 de MULTICLASS_CLASSES
+    assert res["final_diagnosis"] == "mel"  # Récupère l'index 4 de MULTICLASS_CLASSES
     assert "multiclass_scores" in res
 
 def test_predict_internal_server_error(mocker):
@@ -91,3 +94,23 @@ def test_predict_internal_server_error(mocker):
     
     assert response.status_code == 500
     assert "Erreur lors de l'inférence" in response.json()["detail"]
+
+# --- AJOUTS POUR LA COUVERTURE DES FONCTIONS DE CHARGEMENT ---
+
+def test_load_binary_model_mocked(mocker):
+    # On simule l'existence du fichier de poids et le retour de torch.load
+    mocker.patch("os.path.exists", return_value=True)
+    mocker.patch("torch.load", return_value={"model_state_dict": {}})
+    
+    # On appelle la vraie fonction importée pour couvrir ses lignes de code
+    model = inference_mod.load_mobilenet_v2_binary()
+    assert isinstance(model, torch.nn.Module)
+
+def test_load_multiclass_model_mocked(mocker):
+    # On simule l'existence du fichier de poids et le retour de torch.load
+    mocker.patch("os.path.exists", return_value=True)
+    mocker.patch("torch.load", return_value={"model_state_dict": {}})
+    
+    # On appelle la vraie fonction importée pour couvrir ses lignes de code
+    model = inference_mod.load_mobilenet_v2_multiclass()
+    assert isinstance(model, torch.nn.Module)
