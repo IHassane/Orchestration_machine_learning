@@ -38,6 +38,6 @@ def test_log_and_metrics_aggregation():
     assert data["total_requests"] == 2
     assert data["success_rate_pct"] == 50.0
     assert data["http_200"] == 1
-    assert data["errors_count"] == 1
+    assert data["http_errors"] == 1
     assert data["latency_avg_s"] == 0.1500
     assert data["latency_p95_s"] > 0
