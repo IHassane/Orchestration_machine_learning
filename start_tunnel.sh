@@ -1,5 +1,6 @@
+cat << 'EOF' > start_tunnel.sh
 #!/bin/bash
-echo "🚀 Fixation des ports de la stack MLOps..."
+echo "Fixation des ports de la stack MLOps..."
 
 # Suppression des anciens tunnels s'ils existent
 pkill -f "port-forward" 2>/dev/null
@@ -15,4 +16,8 @@ echo "🔍 Vérification des processus :"
 ps aux | grep "port-forward svc/" | grep -v grep
 
 echo "------------------------------------------------"
-echo "✅ Si deux lignes s'affichent au-dessus, c'est tout bon !"
+echo "Si deux lignes s'affichent au-dessus, c'est tout bon !"
+EOF
+
+chmod +x start_tunnel.sh
+./start_tunnel.sh

@@ -2,4 +2,14 @@
 training.py
 /plans
 /Documentation
+start_tunnel.sh
 
+start_tunnel.sh
+illustrationslide.png
+models/training_logs/multiclass_training_history.json
+models/val_indices.npy
+models/train_indices.npy
+models/test_indices.npy
+start_tunnel.sh
+image_test/IMG_1129.jpeg
+models/multiclass_model.pt
