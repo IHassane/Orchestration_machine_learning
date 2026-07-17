@@ -10,13 +10,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copie des dépendances
 COPY requirements.txt .
 
-# Force globalement l'index CPU pour torch
-# Force l'utilisation de moins de ressources durant l'install
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir --no-build-isolation torch==2.2.1 torchvision==0.17.1 numpy<2.0 --index-url https://download.pytorch.org/whl/cpu
-# On installe le reste (FastAPI, Uvicorn, etc.)
-RUN pip install --no-cache-dir -r requirements.txt
+# ==============================================================================
+# INSTALLATION OPTIMISÉE POUR ÉVITER LE CRASH MÉMOIRE (OOM - EXIT CODE 2)
+# ==============================================================================
 
+# 1. Mise à jour de pip en premier
+RUN pip install --no-cache-dir --upgrade pip
+
+# 2. Installation de numpy seul (très rapide et léger, requis par torch)
+RUN pip install --no-cache-dir "numpy<2.0"
+
+# 3. Installation de Torch CPU seule (le plus gros morceau)
+# On utilise --no-warn-script-location pour alléger les logs
+RUN pip install --no-cache-dir torch==2.2.1 --index-url https://download.pytorch.org/whl/cpu
+
+# 4. Installation de Torchvision (qui va réutiliser le torch fraîchement installé)
+RUN pip install --no-cache-dir torchvision==0.17.1 --index-url https://download.pytorch.org/whl/cpu
+
+# 5. Installation du reste de tes dépendances (FastAPI, uvicorn, etc.)
+RUN pip install --no-cache-dir -r requirements.txt
+# ==============================================================================# On installe le reste (FastAPI, Uvicorn, etc.)
 # --- MODIFICATION ICI ---
 # Au lieu de juste faire un mkdir vide, on copie le contenu de ton dossier local
 # Assure-toi que tes fichiers .pt sont bien dans services/inference/models/ sur ton Mac
